@@ -105,7 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('--new-path', type=str, default=None, help='保存先のフォルダのパスを入力')
     parser.add_argument('--process', choices=['rotate','flip'], type=str, default=None, help='処理内容を選択。rotate:回転 flip:反転')
     parser.add_argument('--angle',type=float, default=None, help='回転角 度で指定')
-    parser.add_argument('--flipcode',choices=[1,0,-1], default=None, help='反転方向 0:上下反転 1:左右反転 -1:上下左右反転')
+    parser.add_argument('--flipcode',choices=[1,0,-1], type=int, default=None, help='反転方向 0:上下反転 1:左右反転 -1:上下左右反転')
 
     opt = parser.parse_args()
 

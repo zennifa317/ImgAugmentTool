@@ -3,14 +3,20 @@ import glob
 import argparse
 import os
 import numpy as np
+from tqdm import tqdm
 
-def xywh2wywy(loc):
+def xywh2xyxy(loc, width, height):
     #左上から反時計回りのxy座標に変換
-    x1 = loc[1]
-    y1 = loc[2]
+    loc[1] = float(loc[1]) * width
+    loc[2] = float(loc[2]) * height
+    loc[3] = float(loc[3]) * width
+    loc[4] = float(loc[4]) * height
+
+    x1 = loc[1] - loc[3]
+    y1 = loc[2] - loc[4]
     x2 = x1
-    y2 = y1 + loc[4]
-    x3 = x1 + loc[3]
+    y2 =loc[2] + loc[4]
+    x3 = loc[1] + loc[3]
     y3 = y2
     x4 = x3
     y4 = y1
@@ -23,8 +29,7 @@ def load_label(txt_path):
         labels = f.readlines()
         for label in labels:
             loc = label.split()
-            ch_loc = xywh2wywy(loc)
-            ch_labels.append(ch_loc)
+            ch_labels.append(loc)
     return ch_labels
 
 def ano_adapt(ano):
@@ -41,16 +46,26 @@ def ano_adapt(ano):
     ch_ano = [ano[0][0], x_ave, y_ave, width, height]
     return ch_ano
 
-def coord_trans(label, trans):
+def coord_trans(loc, trans):
     np_trans = np.array(trans)
-    trans_label = [label[0]]
-    for i in range(1, 6):
-        np_ano = np.array(label[i])
-        trans_ano = np.dot(np_trans, np_ano)
-        trans_label.append(trans_ano)
-    return trans_label
+    trans_loc = [loc[0]]
+    for i in range(1, 5):
+        queue = loc[i]
+        np_ano = np.array(queue)
+        T_np_ano = np_ano.transpose()
+        trans_ano = np.dot(np_trans, T_np_ano)
+        list_trans_ano = trans_ano.transpose().tolist()
+        trans_loc.append(list_trans_ano)
+    return trans_loc
 
-def transfomer_img(img, opt):
+def normalize(ano, width, height):
+    ano[1] = round(ano[1]/width, 4)
+    ano[2] = round(ano[2]/height, 4)
+    ano[3] = round(ano[3]/width, 4)
+    ano[4] = round(ano[4]/height, 4)
+    return ano
+
+def transfomer(img, opt, label):
     height = img.shape[0]
     width = img.shape[1]
     if opt.process == 'rotate':
@@ -72,10 +87,17 @@ def transfomer_img(img, opt):
             dest[:,0] = width - src[:,0]
             dest[:,1] = height - src[:,1] 
         trans = cv2.getAffineTransform(src, dest)
-
     ch_img = cv2.warpAffine(img, trans, (width, height))
+
+    nor_ano = []
+    for loc in label:
+        xyxy = xywh2xyxy(loc, width, height)
+        xyxy_trans = coord_trans(xyxy, trans)
+        adapt_loc = ano_adapt(xyxy_trans)
+        nor_loc = normalize(adapt_loc, width, height)
+        nor_ano.append(nor_loc)
     
-    return ch_img
+    return ch_img, nor_ano
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -101,21 +123,14 @@ if __name__ == '__main__':
     if not os.path.exists(new_anopath):
         os.mkdir(new_anopath)
 
-    for im_path, ano_path in zip(imlist, anolist):
+    for im_path, ano_path in tqdm(zip(imlist, anolist), total=len(imlist)):
         img = cv2.imread(im_path)
+        label = load_label(ano_path)
         img_name = os.path.basename(im_path)
-        ch_img = transfomer_img(img=img, opt=opt)
+        label_name = os.path.basename(ano_path)
+        ch_img, adapt_ano = transfomer(img=img, opt=opt, label=label)
         cv2.imwrite(os.path.join(new_impath, img_name), ch_img)
-
-        #label = load_label(ano_path)
-    
-    '''for im_path in imlist:
-        img = cv2.imread(im_path)
-        img_name = os.path.basename(im_path)
-        if opt.process == 'rotate':
-            ch_img = rotate(img, opt.angle)
-        elif opt.process == 'flip':
-            ch_img = flip(img, opt.flipcode)
-        else:
-            print('対応した画像処理はありません')
-        cv2.imwrite(os.path.join(new_impath, img_name), ch_img)'''
+        with open(os.path.join(new_anopath,label_name), mode='w') as f:
+            for i in adapt_ano:
+                f.write(' '.join(map(str, i)) + '\n')
+    print('Finish!')

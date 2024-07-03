@@ -14,8 +14,8 @@ def xywh2wywy(loc):
     y3 = y2
     x4 = x3
     y4 = y1
-    changed_loc = [loc[0],[x1, y1, 1],[x2, y2, 1],[x3, y3, 1],[x4, y4, 1]]
-    return changed_loc
+    ch_loc = [loc[0],[x1, y1, 1],[x2, y2, 1],[x3, y3, 1],[x4, y4, 1]]
+    return ch_loc
 
 def load_label(txt_path):
     ch_labels =[]
@@ -50,17 +50,31 @@ def coord_trans(label, trans):
         trans_label.append(trans_ano)
     return trans_label
 
-def rotate(img, angle):
-    scale = 1.0
+def transfomer_img(img, opt):
     height = img.shape[0]
     width = img.shape[1]
-    center = (int(width/2), int(height/2))
-    trans = cv2.getRotationMatrix2D(center, angle, scale)
-    ch_img = cv2.warpAffine(img, trans, (width, height))
-    return ch_img
+    if opt.process == 'rotate':
+        scale = 1.0
+        angle = opt.angle
+        center = (int(width/2), int(height/2))
+        trans = cv2.getRotationMatrix2D(center, angle, scale)
 
-def flip(img, flipcode):
-    ch_img = cv2,flip(img, flipcode)
+    elif opt.process == 'flip':
+        src = np.array([[0.0, 0.0],[0.0, 1.0],[1.0, 0.0]], np.float32)
+        if opt.flipcode == 0:
+            dest = dest = src.copy()
+            dest[:,1] = height - src[:,1] 
+        elif opt.flipcode == 1:
+            dest = dest = src.copy()
+            dest[:,0] = width - src[:,0]
+        elif opt.flipcode == -1:
+            dest = dest = src.copy()
+            dest[:,0] = width - src[:,0]
+            dest[:,1] = height - src[:,1] 
+        trans = cv2.getAffineTransform(src, dest)
+
+    ch_img = cv2.warpAffine(img, trans, (width, height))
+    
     return ch_img
 
 if __name__ == '__main__':
@@ -90,14 +104,10 @@ if __name__ == '__main__':
     for im_path, ano_path in zip(imlist, anolist):
         img = cv2.imread(im_path)
         img_name = os.path.basename(im_path)
-        label = load_label(ano_path)
-        if opt.process == 'rotate':
-            ch_img = rotate(img, opt.angle)
-        elif opt.process == 'flip':
-            ch_img = flip(img, opt.flipcode)
-        else:
-            print('対応した画像処理はありません')
+        ch_img = transfomer_img(img=img, opt=opt)
         cv2.imwrite(os.path.join(new_impath, img_name), ch_img)
+
+        #label = load_label(ano_path)
     
     '''for im_path in imlist:
         img = cv2.imread(im_path)

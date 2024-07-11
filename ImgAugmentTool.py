@@ -113,9 +113,6 @@ def transfomer(img, opt, label):
         elif opt.shear_point == 3:
             dest[:,1] += (opt.shear_factor * src[:,0]).astype(np.float32)
         
-        else: 
-            raise ValueError('せん断係数が設定されていません')
-        
         trans = cv2.getAffineTransform(src, dest)
         
     ch_img = cv2.warpAffine(img, trans, (width, height))
@@ -141,6 +138,17 @@ if __name__ == '__main__':
     parser.add_argument('--shear_point',choices=[0,1,2,3],type=int, default=None, help='せん断起点 0:下辺 1:右辺 2:上辺 3:左辺')
 
     opt = parser.parse_args()
+
+    assert opt.input != None, 'inputが指定されていません'
+    assert opt.output != None, 'outputが指定されていません'
+    assert opt.process != None, 'processが指定されていません'
+    if opt.process == 'rotate':
+        assert opt.angle != None, 'angleが指定されていません'
+    elif opt.process == 'flip':
+        assert opt.flipcode != None, 'flipcodeが指定されていません'
+    elif opt.process == 'shear':
+        assert opt.shear_factor != None, 'shear_factorが指定されていません'
+        assert opt.shear_point != None, 'shear_pointが指定されていません'
 
     input_impath = os.path.join(opt.input, 'images')
     input_anopath = os.path.join(opt.input, 'labels')

@@ -136,6 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('--flipcode',choices=[1,0,-1], type=int, default=None, help='反転方向 0:上下反転 1:左右反転 -1:上下左右反転')
     parser.add_argument('--shear_factor',type=float, default=None, help='せん断係数')
     parser.add_argument('--shear_point',choices=[0,1,2,3],type=int, default=None, help='せん断起点 0:下辺 1:右辺 2:上辺 3:左辺')
+    parser.add_argument('--visualization', action='store_true',help='画像処理後に画像にラベルをプロットしてラベルの確認を行うか否か')
 
     opt = parser.parse_args()
 
@@ -160,7 +161,7 @@ if __name__ == '__main__':
         imlist.append(glob.glob(os.path.join(input_impath,'*.jpg')))
     else:
         imlist = glob.glob(os.path.join(opt.input,'*.png'))
-        imlist.append(glob.glob(os.path.join(opt.input,'*.jog')))
+        imlist.append(glob.glob(os.path.join(opt.input,'*.jpg')))
     
     if os.path.exists(input_anopath):
         anolist = glob.glob(os.path.join(input_anopath,'*.txt'))
@@ -192,3 +193,27 @@ if __name__ == '__main__':
                 f.write(' '.join(map(str, i)) + '\n')
     
     print('Done!')
+
+    if opt.visualization:
+        os.mkdir(os.path.join(opt.output),'visualization')
+
+        out_image_list = []
+        out_ano_list = []
+
+        out_image_list = glob.glob(os.path.join(output_impath,'*.jpg'))
+        out_image_list.append(glob.glob(os.path.join(output_impath,'*.png')))
+        out_ano_list = glob.glob(os.path.join(output_anopath, '*.txt'))
+
+        for out_image, out_ano in tqdm(zip(out_image_list, out_ano_list), total=len(out_image_list)):
+            img = cv2.imread(out_image)
+            anos = load_label(ano_path, img.shape[0], img.shape[1])
+
+            img_name = os.path.basename(im_path)
+            label_name = os.path.basename(ano_path)
+
+            for ano in anos:
+                cv2.rectangle(img, pt1=(ano[1]-ano[3],ano[2]-ano[4]), pt2=(ano[1]+ano[3],ano[2]+ano[4]),color=(255,0,0),thickness=3)
+            
+            cv2.imwrite(os.path.join(opt.output,'visualization',img_name), img)
+
+        print('Done!')

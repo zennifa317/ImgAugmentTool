@@ -72,6 +72,13 @@ def normalize(ano, width, height):
     ano[3] = round(ano[3]/width, 4)
     ano[4] = round(ano[4]/height, 4)
     
+    for i in ano:
+        for l in i:
+            if l > 1:
+                l = 1
+            if l < 0:
+                l = 0
+
     return ano
 
 def transfomer(img, opt, label):

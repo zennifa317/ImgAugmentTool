@@ -37,16 +37,21 @@ def load_label(txt_path, height, width):
     
     return ch_labels
 
-def ano_adapt(ano):
+def ano_adapt(ano, img_width, img_height):
     x_max = max(ano[1][0],ano[2][0],ano[3][0],ano[4][0])
     x_min = min(ano[1][0],ano[2][0],ano[3][0],ano[4][0])
     y_max = max(ano[1][1],ano[2][1],ano[3][1],ano[4][1])
     y_min = min(ano[1][1],ano[2][1],ano[3][1],ano[4][1])
 
-    x_ave = (x_max + x_min)/2
-    y_ave = (y_max + y_min)/2
-    width = (x_max - x_min)/2
-    height = (y_max - y_min)/2
+    x_max = img_width if x_max > img_width else 0 if x_max < 0 else x_max
+    x_min = img_width if x_min > img_width else 0 if x_min < 0 else x_min
+    y_max = img_height if y_max > img_height else 0 if y_max < 0 else y_max
+    y_min = img_height if y_min > img_height else 0 if y_min < 0 else y_min
+    
+    x_ave = (x_max + x_min)/2 if x_max != x_min else None
+    y_ave = (y_max + y_min)/2 if y_max != y_min else None
+    width = (x_max - x_min)/2 if x_max != x_min else None
+    height = (y_max - y_min)/2 if y_max != y_min else None
 
     ch_ano = [ano[0], x_ave, y_ave, width, height]
     
@@ -71,13 +76,6 @@ def normalize(ano, width, height):
     ano[2] = round(ano[2]/height, 4)
     ano[3] = round(ano[3]/width, 4)
     ano[4] = round(ano[4]/height, 4)
-    
-    for i in ano:
-        for l in i:
-            if l > 1:
-                l = 1
-            if l < 0:
-                l = 0
 
     return ano
 
@@ -128,7 +126,7 @@ def transfomer(img, opt, label):
     for loc in label:
         xyxy = xywh2xyxy(loc)
         xyxy_trans = coord_trans(xyxy, trans)
-        adapt_loc = ano_adapt(xyxy_trans)
+        adapt_loc = ano_adapt(xyxy_trans, width, height)
         nor_loc = normalize(adapt_loc, width, height)
         nor_ano.append(nor_loc)
     
@@ -138,7 +136,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=str, default=None, help='画像とラベルが格納されたフォルダのパスを入力')
     parser.add_argument('--output', type=str, default=None, help='保存先のフォルダのパスを入力')
-    parser.add_argument('--process', choices=['rotate','flip','shear'], type=str, default=None, help='処理内容を選択。rotate:回転 flip:反転')
+    parser.add_argument('--process', choices=['rotate','flip','shear'], type=str, default=None, help='処理内容を選択。rotate:回転 flip:反転 shear:せん断')
     parser.add_argument('--angle',type=float, default=None, help='回転角 度で指定')
     parser.add_argument('--flipcode',choices=[1,0,-1], type=int, default=None, help='反転方向 0:上下反転 1:左右反転 -1:上下左右反転')
     parser.add_argument('--shear_factor',type=float, default=None, help='せん断係数')
@@ -158,17 +156,17 @@ if __name__ == '__main__':
         assert opt.shear_factor != None, 'shear_factorが指定されていません'
         assert opt.shear_point != None, 'shear_pointが指定されていません'
 
-    input_impath = os.path.join(opt.input, 'images')
+    input_impath = os.path.join(opt.input, 'resize')
     input_anopath = os.path.join(opt.input, 'labels')
 
     imlist = []
     anolist = []
     if os.path.exists(input_impath):
-        imlist = glob.glob(os.path.join(input_impath,'*.png'))
-        imlist.append(glob.glob(os.path.join(input_impath,'*.jpg')))
+        for i in ('*.jpg', '*.png'):
+            imlist += glob.glob(os.path.join(input_impath,i))
     else:
-        imlist = glob.glob(os.path.join(opt.input,'*.png'))
-        imlist.append(glob.glob(os.path.join(opt.input,'*.jpg')))
+        for i in ('*.jpg', '*.png'):
+            imlist += glob.glob(os.path.join(opt.input,i))
     
     if os.path.exists(input_anopath):
         anolist = glob.glob(os.path.join(input_anopath,'*.txt'))
@@ -189,37 +187,44 @@ if __name__ == '__main__':
         img = cv2.imread(im_path)
         label = load_label(ano_path, img.shape[0], img.shape[1])
         
-        img_name = os.path.basename(im_path)
-        label_name = os.path.basename(ano_path)
+        if opt.process == 'rotate':
+            add_name = '_' + opt.process + '_' + str(opt.angle)
+        elif opt.process == 'flip':
+            add_name = '_' + opt.process + '_' + str(opt.flipcode)
+        elif opt.process == 'shear':
+            add_name = '_' + opt.process + '_' + str(opt.shear_factor)
+
+        img_name = os.path.splitext(os.path.basename(im_path))[0] + add_name + '.jpg'
+        label_name = os.path.splitext(os.path.basename(ano_path))[0] + add_name + '.txt'
         
         ch_img, adapt_ano = transfomer(img=img, opt=opt, label=label)
         
         cv2.imwrite(os.path.join(output_impath, img_name), ch_img)
         with open(os.path.join(output_anopath,label_name), mode='w') as f:
-            for i in adapt_ano:
-                f.write(' '.join(map(str, i)) + '\n')
+            if None not in adapt_ano:
+                for i in adapt_ano:
+                    f.write(' '.join(map(str, i)) + '\n')
     
     print('Done!')
 
     if opt.visualization:
-        os.mkdir(os.path.join(opt.output),'visualization')
+        os.mkdir(os.path.join(opt.output,'visualization'))
 
         out_image_list = []
-        out_ano_list = []
+        out_image_list += glob.glob(os.path.join(output_impath, '*.jpg'))
 
-        out_image_list = glob.glob(os.path.join(output_impath,'*.jpg'))
-        out_image_list.append(glob.glob(os.path.join(output_impath,'*.png')))
-        out_ano_list = glob.glob(os.path.join(output_anopath, '*.txt'))
-
-        for out_image, out_ano in tqdm(zip(out_image_list, out_ano_list), total=len(out_image_list)):
+        for out_image in tqdm(out_image_list):
             img = cv2.imread(out_image)
+            ano_path = out_image.replace('images', 'labels').replace('jpg', 'txt')
             anos = load_label(ano_path, img.shape[0], img.shape[1])
 
-            img_name = os.path.basename(im_path)
+            img_name = os.path.basename(out_image)
             label_name = os.path.basename(ano_path)
 
             for ano in anos:
-                cv2.rectangle(img, pt1=(ano[1]-ano[3],ano[2]-ano[4]), pt2=(ano[1]+ano[3],ano[2]+ano[4]),color=(255,0,0),thickness=3)
+                pt1 = (round(ano[1]-ano[3]), round(ano[2]-ano[4]))
+                pt2 = (round(ano[1]+ano[3]), round(ano[2]+ano[4]))
+                cv2.rectangle(img, pt1=pt1, pt2=pt2,color=(255,0,0),thickness=3)
             
             cv2.imwrite(os.path.join(opt.output,'visualization',img_name), img)
 

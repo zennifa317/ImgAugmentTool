@@ -156,7 +156,7 @@ if __name__ == '__main__':
         assert opt.shear_factor != None, 'shear_factorが指定されていません'
         assert opt.shear_point != None, 'shear_pointが指定されていません'
 
-    input_impath = os.path.join(opt.input, 'resize')
+    input_impath = os.path.join(opt.input, 'images')
     input_anopath = os.path.join(opt.input, 'labels')
 
     imlist = []

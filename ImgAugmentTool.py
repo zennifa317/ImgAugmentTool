@@ -79,44 +79,44 @@ def normalize(ano, width, height):
 
     return ano
 
-def transfomer(img, opt, label):
+def transfomer(img, label, process, angle, flipcode, shear_point, shear_factor):
     height = img.shape[0]
     width = img.shape[1]
-    if opt.process == 'rotate':
+    if process == 'rotate':
         scale = 1.0
-        angle = opt.angle
+        angle = angle
         center = (int(width/2), int(height/2))
         trans = cv2.getRotationMatrix2D(center, angle, scale)
 
-    elif opt.process == 'flip':
+    elif process == 'flip':
         src = np.array([[0.0, 0.0],[0.0, 1.0],[1.0, 0.0]], np.float32)
         dest = dest = src.copy()
-        if opt.flipcode == 0:
+        if flipcode == 0:
             dest[:,1] = height - src[:,1] 
         
-        elif opt.flipcode == 1:
+        elif flipcode == 1:
             dest[:,0] = width - src[:,0]
        
-        elif opt.flipcode == -1:
+        elif flipcode == -1:
             dest[:,0] = width - src[:,0]
             dest[:,1] = height - src[:,1] 
 
         trans = cv2.getAffineTransform(src, dest)
 
-    elif opt.process == 'shear':
+    elif process == 'shear':
         src = np.array([[0.0, 0.0],[0.0, 1.0],[1.0, 0.0]], np.float32)
         dest = src.copy()
-        if opt.shear_point == 0:   
-            dest[:,0] += (opt.shear_factor * (height - src[:,1])).astype(np.float32)
+        if shear_point == 0:   
+            dest[:,0] += (shear_factor * (height - src[:,1])).astype(np.float32)
 
-        elif opt.shear_point == 1:
-            dest[:,1] += (opt.shear_factor * (width - src[:,0])).astype(np.float32)
+        elif shear_point == 1:
+            dest[:,1] += (shear_factor * (width - src[:,0])).astype(np.float32)
 
-        elif opt.shear_point == 2:
-            dest[:,0] += (opt.shear_factor * src[:, 1]).astype(np.float32)
+        elif shear_point == 2:
+            dest[:,0] += (shear_factor * src[:, 1]).astype(np.float32)
 
-        elif opt.shear_point == 3:
-            dest[:,1] += (opt.shear_factor * src[:,0]).astype(np.float32)
+        elif shear_point == 3:
+            dest[:,1] += (shear_factor * src[:,0]).astype(np.float32)
         
         trans = cv2.getAffineTransform(src, dest)
         
@@ -131,6 +131,86 @@ def transfomer(img, opt, label):
         nor_ano.append(nor_loc)
     
     return ch_img, nor_ano
+
+def ImgAugumentTool(input, output, process, angle, flipcode, shear_factor, shear_point):
+    input_impath = os.path.join(input, 'images')
+    input_anopath = os.path.join(input, 'labels')
+
+    imlist = []
+    anolist = []
+    if os.path.exists(input_impath):
+        for i in ('*.jpg', '*.png'):
+            imlist += glob.glob(os.path.join(input_impath,i))
+    else:
+        for i in ('*.jpg', '*.png'):
+            imlist += glob.glob(os.path.join(input,i))
+    
+    if os.path.exists(input_anopath):
+        anolist = glob.glob(os.path.join(input_anopath,'*.txt'))
+    else:
+        anolist = glob.glob(os.path.join(input,'*.txt'))
+
+    output_impath = os.path.join(output,'images')
+    output_anopath = os.path.join(output,'labels')
+    
+    if not os.path.exists(output):
+        os.mkdir(output)
+    if not os.path.exists(output_impath):
+        os.mkdir(output_impath)
+    if not os.path.exists(output_anopath):
+        os.mkdir(output_anopath)
+
+    for im_path, ano_path in tqdm(zip(imlist, anolist), total=len(imlist)):
+        img = cv2.imread(im_path)
+        label = load_label(ano_path, img.shape[0], img.shape[1])
+        
+        if process == 'rotate':
+            add_name = '_' + process + '_' + str(angle)
+        elif process == 'flip':
+            add_name = '_' + process + '_' + str(flipcode)
+        elif process == 'shear':
+            add_name = '_' + process + '_' + str(shear_factor)
+
+        img_name = os.path.splitext(os.path.basename(im_path))[0] + add_name + '.jpg'
+        label_name = os.path.splitext(os.path.basename(ano_path))[0] + add_name + '.txt'
+        
+        ch_img, adapt_ano = transfomer(img=img, 
+                                       label=label, 
+                                       process=process,
+                                       angle=angle,
+                                       flipcode=flipcode,
+                                       shear_point=shear_point,
+                                       shear_factor=shear_factor)
+        
+        cv2.imwrite(os.path.join(output_impath, img_name), ch_img)
+        with open(os.path.join(output_anopath,label_name), mode='w') as f:
+            if None not in adapt_ano:
+                for i in adapt_ano:
+                    f.write(' '.join(map(str, i)) + '\n')
+    
+    print('Augmentation Done!')
+
+def visualization(output):
+    os.mkdir(os.path.join(output,'visualization'))
+
+    out_image_list = []
+    out_image_list += glob.glob(os.path.join(output, 'images', '*.jpg'))
+
+    for out_image in tqdm(out_image_list):
+        img = cv2.imread(out_image)
+        ano_path = out_image.replace('images', 'labels').replace('jpg', 'txt')
+        anos = load_label(ano_path, img.shape[0], img.shape[1])
+
+        img_name = os.path.basename(out_image)
+
+        for ano in anos:
+            pt1 = (round(ano[1]-ano[3]), round(ano[2]-ano[4]))
+            pt2 = (round(ano[1]+ano[3]), round(ano[2]+ano[4]))
+            cv2.rectangle(img, pt1=pt1, pt2=pt2,color=(255,0,0),thickness=3)
+            
+        cv2.imwrite(os.path.join(output,'visualization',img_name), img)
+
+    print('Visualization Done!')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -155,77 +235,14 @@ if __name__ == '__main__':
     elif opt.process == 'shear':
         assert opt.shear_factor != None, 'shear_factorが指定されていません'
         assert opt.shear_point != None, 'shear_pointが指定されていません'
-
-    input_impath = os.path.join(opt.input, 'images')
-    input_anopath = os.path.join(opt.input, 'labels')
-
-    imlist = []
-    anolist = []
-    if os.path.exists(input_impath):
-        for i in ('*.jpg', '*.png'):
-            imlist += glob.glob(os.path.join(input_impath,i))
-    else:
-        for i in ('*.jpg', '*.png'):
-            imlist += glob.glob(os.path.join(opt.input,i))
     
-    if os.path.exists(input_anopath):
-        anolist = glob.glob(os.path.join(input_anopath,'*.txt'))
-    else:
-        anolist = glob.glob(os.path.join(opt.input,'*.txt'))
-
-    output_impath = os.path.join(opt.output,'images')
-    output_anopath = os.path.join(opt.output,'labels')
-    
-    if not os.path.exists(opt.output):
-        os.mkdir(opt.output)
-    if not os.path.exists(output_impath):
-        os.mkdir(output_impath)
-    if not os.path.exists(output_anopath):
-        os.mkdir(output_anopath)
-
-    for im_path, ano_path in tqdm(zip(imlist, anolist), total=len(imlist)):
-        img = cv2.imread(im_path)
-        label = load_label(ano_path, img.shape[0], img.shape[1])
-        
-        if opt.process == 'rotate':
-            add_name = '_' + opt.process + '_' + str(opt.angle)
-        elif opt.process == 'flip':
-            add_name = '_' + opt.process + '_' + str(opt.flipcode)
-        elif opt.process == 'shear':
-            add_name = '_' + opt.process + '_' + str(opt.shear_factor)
-
-        img_name = os.path.splitext(os.path.basename(im_path))[0] + add_name + '.jpg'
-        label_name = os.path.splitext(os.path.basename(ano_path))[0] + add_name + '.txt'
-        
-        ch_img, adapt_ano = transfomer(img=img, opt=opt, label=label)
-        
-        cv2.imwrite(os.path.join(output_impath, img_name), ch_img)
-        with open(os.path.join(output_anopath,label_name), mode='w') as f:
-            if None not in adapt_ano:
-                for i in adapt_ano:
-                    f.write(' '.join(map(str, i)) + '\n')
-    
-    print('Done!')
+    ImgAugumentTool(input=opt.input, 
+                    output=opt.output, 
+                    process=opt.process, 
+                    angle=opt.angle, 
+                    flipcode=opt.flipcode, 
+                    shear_factor=opt.shear_factor, 
+                    shear_point=opt.shaer_point)
 
     if opt.visualization:
-        os.mkdir(os.path.join(opt.output,'visualization'))
-
-        out_image_list = []
-        out_image_list += glob.glob(os.path.join(output_impath, '*.jpg'))
-
-        for out_image in tqdm(out_image_list):
-            img = cv2.imread(out_image)
-            ano_path = out_image.replace('images', 'labels').replace('jpg', 'txt')
-            anos = load_label(ano_path, img.shape[0], img.shape[1])
-
-            img_name = os.path.basename(out_image)
-            label_name = os.path.basename(ano_path)
-
-            for ano in anos:
-                pt1 = (round(ano[1]-ano[3]), round(ano[2]-ano[4]))
-                pt2 = (round(ano[1]+ano[3]), round(ano[2]+ano[4]))
-                cv2.rectangle(img, pt1=pt1, pt2=pt2,color=(255,0,0),thickness=3)
-            
-            cv2.imwrite(os.path.join(opt.output,'visualization',img_name), img)
-
-        print('Done!')
+        visualization(opt.output)

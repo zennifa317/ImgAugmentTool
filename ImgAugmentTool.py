@@ -152,13 +152,6 @@ def ImgAugumentTool(input, output, process, angle, flipcode, shear_factor, shear
 
     output_impath = os.path.join(output,'images')
     output_anopath = os.path.join(output,'labels')
-    
-    if not os.path.exists(output):
-        os.mkdir(output)
-    if not os.path.exists(output_impath):
-        os.mkdir(output_impath)
-    if not os.path.exists(output_anopath):
-        os.mkdir(output_anopath)
 
     for im_path, ano_path in tqdm(zip(imlist, anolist), total=len(imlist)):
         img = cv2.imread(im_path)
@@ -236,6 +229,13 @@ if __name__ == '__main__':
         assert opt.shear_factor != None, 'shear_factorが指定されていません'
         assert opt.shear_point != None, 'shear_pointが指定されていません'
     
+    if not os.path.exists(opt.output):
+        os.mkdir(opt.output)
+    if not os.path.exists(os.path.join(opt.output, 'images')):
+        os.mkdir(os.path.join(opt.output, 'images'))
+    if not os.path.exists(os.path.join(opt.output, 'labels')):
+        os.mkdir(os.path.join(opt.output, 'labels'))
+
     ImgAugumentTool(input=opt.input, 
                     output=opt.output, 
                     process=opt.process, 

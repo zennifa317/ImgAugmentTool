@@ -21,6 +21,23 @@ class yolo_format:
                 imgs[img_id] = img_info
             
             self.imgs = imgs
+            print('Done')
 
         if annotation_file is not None:
-            print('loading annotations file')
+            print('loading annotations file...')
+            anns = {}
+            for ann_path in annotation_file:
+                img_id = os.path.splitext(os.path.basename(ann_path))[0]
+                ann_info = {}
+                with open(ann_path, 'r') as f:
+                    ann = f.readlines()
+                for info in ann:
+                    cat_id, bbox = info.split(' ', 1)
+
+                    ann_info['cat_id'] = cat_id
+                    ann_info['bbox'] = bbox
+
+                anns[img_id] = ann_info
+            
+            self.anns = anns
+            print('Done')

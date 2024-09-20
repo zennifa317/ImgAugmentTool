@@ -1,8 +1,9 @@
 import cv2
 import os
 from collections import defaultdict
+
 class yolo_format:
-    def __init__(self, images_file=None, annotation_file=None):
+    def __init__(self, images_file=None, annotations_file=None):
         self.imgs, self.anns = dict(), dict() 
         if images_file is not None:
             print('loading images file...')
@@ -23,10 +24,10 @@ class yolo_format:
             self.imgs = imgs
             print('Done')
 
-        if annotation_file is not None:
+        if annotations_file is not None:
             print('loading annotations file...')
             anns = {}
-            for ann_path in annotation_file:
+            for ann_path in annotations_file:
                 img_id = os.path.splitext(os.path.basename(ann_path))[0]
                 ann_info = {}
                 with open(ann_path, 'r') as f:
@@ -41,3 +42,8 @@ class yolo_format:
             
             self.anns = anns
             print('Done')
+
+    def show(self, img_id, draw_bbox=False):
+        img = cv2.imread(self.imgs[img_id]['path'])
+        if draw_bbox:
+            

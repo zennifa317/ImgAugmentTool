@@ -1,6 +1,5 @@
 import cv2
 import os
-from collections import defaultdict
 
 class yolo_format:
     def __init__(self, images_file=None, annotations_file=None):
@@ -43,7 +42,9 @@ class yolo_format:
             self.anns = anns
             print('Done')
 
-    def show(self, img_id, draw_bbox=False):
-        img = cv2.imread(self.imgs[img_id]['path'])
-        if draw_bbox:
-            
+    def save(self, img_id, output):
+        os.makedirs(output, exist_ok=True)
+
+        img_info = self.imgs[img_id]
+        img = cv2.imread(img_info['path'])
+        cv2.imwrite(os.path.join(output, img_info['img_name']), img)

@@ -49,6 +49,11 @@ class yolo_format:
             self.anns = anns
             print('Done')
 
+        diff = set(imgs) ^ set(anns)
+        if diff is not None:
+            print('画像データとアノテーションデータの数が一致していません。')
+            print(f'img_id:{diff}')
+
     def save(self, img_id, output):
         image_path = os.path.join(output, 'images')
         label_path = os.path.join(output, 'labels')

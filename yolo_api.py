@@ -2,6 +2,8 @@ import cv2
 from collections import defaultdict
 import os
 
+from general import xywh2xyX4
+
 class yolo_format:
     def __init__(self, images_file=None, annotations_file=None):
         self.imgs, self.anns = dict(), dict() 
@@ -35,6 +37,9 @@ class yolo_format:
                     ann_info = {}
 
                     cat_id, bbox = info.split(' ', 1)
+                    cat_id = int(cat_id)
+                    bbox = list(map(float, bbox))
+                    print(bbox)
 
                     ann_info['cat_id'] = cat_id
                     ann_info['bbox'] = bbox
@@ -66,3 +71,22 @@ class yolo_format:
         print(anns)
         with open(os.path.join(label_path, img_id+'.txt'), mode='w') as f:
             f.write(''.join(anns))
+    
+    def show(self, img_id, draw_bbox=False):
+        img_info = self.imgs[img_id]
+        img_path = img_info['path']
+        img = cv2.imread(img_path)
+        
+        if draw_bbox:
+            width = img_info['width']
+            height = img_info['height']
+            for ann in self.anns[img_id]:
+                de_ann = []
+                for point, scale in zip(ann['bbox'], (width, height, width, height)):
+                    de_ann.append(round(point * scale))
+                corner = xywh2xyX4(de_ann)
+                cv2.rectangle(img, corner[0], corner[2])
+
+        cv2.imshow(img_id, img)
+        cv2.waitKey(0)
+        cv2.destroyWindow(img_id)

@@ -38,8 +38,8 @@ class yolo_format:
 
                     cat_id, bbox = info.split(' ', 1)
                     cat_id = int(cat_id)
+                    bbox = bbox.split(' ')
                     bbox = list(map(float, bbox))
-                    print(bbox)
 
                     ann_info['cat_id'] = cat_id
                     ann_info['bbox'] = bbox
@@ -85,7 +85,7 @@ class yolo_format:
                 for point, scale in zip(ann['bbox'], (width, height, width, height)):
                     de_ann.append(round(point * scale))
                 corner = xywh2xyX4(de_ann)
-                cv2.rectangle(img, corner[0], corner[2])
+                cv2.rectangle(img, corner[0], corner[2], (255, 0, 0))
 
         cv2.imshow(img_id, img)
         cv2.waitKey(0)

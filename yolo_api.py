@@ -4,7 +4,7 @@ import os
 
 from general import xywh2xyX4
 
-class yolo_format:
+class Yolo:
     def __init__(self, images_file=None, annotations_file=None):
         self.imgs, self.anns = dict(), dict() 
         if images_file is not None:
@@ -16,7 +16,7 @@ class yolo_format:
                 img_name = os.path.basename(img_path)
                 img_id = os.path.splitext(img_name)[0]
 
-                img_info['img_name'] = img_name
+                img_info['img_name'] = img_name                
                 img_info['path'] = img_path
                 img_info['height'] = img.shape[0]
                 img_info['width'] = img.shape[1]
@@ -94,3 +94,8 @@ class yolo_format:
         cv2.imshow(img_id, img)
         cv2.waitKey(0)
         cv2.destroyWindow(img_id)
+
+    def get_imgid(self):
+        return list(self.imgs)
+    
+    def transform(self, img_id, trans):

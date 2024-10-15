@@ -98,4 +98,18 @@ class Yolo:
     def get_imgid(self):
         return list(self.imgs)
     
-    def transform(self, img_id, trans):
+    def load_img(self, img_id):
+        img_path = self.imgs[img_id]['path']
+        img = cv2.imread(img_path)
+
+        return img
+
+    def load_ann(self, img_id):
+        cat_id = self.anns[img_id]['cat_id']
+        bbox = self.anns[img_id]['bbox']
+
+        return cat_id, bbox
+
+    def trans_img(self, img_id, trans):
+        img = self.load_img(img_id)
+        transed_img =cv2.wrapAffine()

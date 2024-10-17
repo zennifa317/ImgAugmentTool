@@ -1,8 +1,9 @@
 import cv2
 from collections import defaultdict
+import numpy as np
 import os
 
-from general import xywh2xyX4
+from general import xywh2xyX4, max_min
 
 class Yolo:
     def __init__(self, images_file=None, annotations_file=None):
@@ -104,12 +105,29 @@ class Yolo:
 
         return img
 
-    def load_ann(self, img_id):
-        cat_id = self.anns[img_id]['cat_id']
-        bbox = self.anns[img_id]['bbox']
+    def load_anns(self, img_id):
+        anns = self.anns[img_id]
 
-        return cat_id, bbox
+        return anns
 
-    def trans_img(self, img_id, trans):
+    def trans_img(self, img_id, trans, height, width):
         img = self.load_img(img_id)
-        transed_img =cv2.wrapAffine()
+        transed_img =cv2.wrapAffine(img, trans, (width, height))
+
+        return transed_img
+
+    def trans_ann(self, img_id, trans):
+        anns = self.load_anns(img_id)
+        trans_anns = []
+        np_trans = np.array(trans)
+        for ann in anns:
+            bbox = ann['bbox']
+            corner = xywh2xyX4(bbox)
+
+            np_corner = np.array(corner)
+            np_corner = np.append(np_corner, np.ones(4, 1), axis=1)
+            np_transed_corner = np.dot(np_trans, np_corner.T)
+            np_transed_corner = np.delete(np_transed_corner, 2, axis=0)
+            transed_corner = np_transed_corner.T.tolist()
+
+            ado_corner = max_min(transed_corner)

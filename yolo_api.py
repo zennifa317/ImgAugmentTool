@@ -3,7 +3,7 @@ from collections import defaultdict
 import numpy as np
 import os
 
-from general import xywh2xyX4, max_min
+from general import xywh2xyX4, adjust_corner, xyX42xywh
 
 class Yolo:
     def __init__(self, images_file=None, annotations_file=None):
@@ -118,7 +118,7 @@ class Yolo:
 
     def trans_ann(self, img_id, trans):
         anns = self.load_anns(img_id)
-        trans_anns = []
+        transed_anns = []
         np_trans = np.array(trans)
         for ann in anns:
             bbox = ann['bbox']
@@ -130,4 +130,8 @@ class Yolo:
             np_transed_corner = np.delete(np_transed_corner, 2, axis=0)
             transed_corner = np_transed_corner.T.tolist()
 
-            ado_corner = max_min(transed_corner)
+            adj_corner = adjust_corner(transed_corner)
+            transed_bbox = xyX42xywh(adj_corner)
+            transed_anns.append(transed_bbox)
+
+        return transed_anns

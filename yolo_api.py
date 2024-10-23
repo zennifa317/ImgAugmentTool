@@ -1,5 +1,6 @@
 import cv2
 from collections import defaultdict
+import json
 import numpy as np
 import os
 
@@ -54,7 +55,7 @@ class Yolo:
         if diff is not None:
             raise IndexError(f'画像データとアノテーションデータの数が一致していません\nimg_id:{diff}')
 
-    def save(self, img_id, output):
+    def save(self, img_id, output, draw_bbox=False):
         image_path = os.path.join(output, 'images')
         label_path = os.path.join(output, 'labels')
 
@@ -66,6 +67,17 @@ class Yolo:
 
         img_info = self.imgs[img_id]
         img = cv2.imread(img_info['path'])
+
+        if draw_bbox:
+            width = img_info['width']
+            height = img_info['height']
+            for ann in self.anns[img_id]:
+                de_ann = []
+                for point, scale in zip(ann['bbox'], (width, height, width, height)):
+                    de_ann.append(round(point * scale))
+                corner = xywh2xyX4(de_ann)
+                cv2.rectangle(img, corner[0], corner[2], (255, 0, 0))
+
         cv2.imwrite(os.path.join(image_path, img_info['img_name']), img)
 
         anns_info = self.anns[img_id]
@@ -99,8 +111,11 @@ class Yolo:
     def get_imgid(self):
         return list(self.imgs)
     
+    def get_impath(self, img_id):
+        return self.imgs[img_id]['path']
+    
     def load_img(self, img_id):
-        img_path = self.imgs[img_id]['path']
+        img_path = self.get_impath(img_id)
         img = cv2.imread(img_path)
 
         return img
@@ -110,8 +125,12 @@ class Yolo:
 
         return anns
 
-    def trans_img(self, img_id, trans, height, width):
+    def trans_img(self, img_id, trans, height=None, width=None):
         img = self.load_img(img_id)
+        if height is None:
+            height = self.imgs[img_id]['height']
+        if  width is None:
+            width =self.imgs[img_id]['width']
         transed_img =cv2.wrapAffine(img, trans, (width, height))
 
         return transed_img
@@ -135,3 +154,8 @@ class Yolo:
             transed_anns.append(transed_bbox)
 
         return transed_anns
+    
+    def create_json(self, json_path):
+        with open(json_path) as f:
+            json.dump(self.imgs, f, indent=1, sort_keys=True)
+            json.dump(self.anns, f, indent=1, sort_keys=True)

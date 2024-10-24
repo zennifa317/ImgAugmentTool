@@ -1,8 +1,9 @@
-import cv2
 from collections import defaultdict
 import json
-import numpy as np
 import os
+
+import cv2
+import numpy as np
 
 from general import xywh2xyX4, adjust_corner, xyX42xywh
 

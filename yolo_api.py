@@ -7,7 +7,7 @@ import os
 from general import xywh2xyX4, adjust_corner, xyX42xywh
 
 class Yolo:
-    def __init__(self, images_file=None, annotations_file=None):
+    def load_imgs_annos(self, images_file=None, annotations_file=None):
         self.imgs, self.anns = dict(), dict() 
         if images_file is not None:
             print('loading images file...')
@@ -54,6 +54,46 @@ class Yolo:
         diff = set(imgs) ^ set(anns)
         if diff is not None:
             raise IndexError(f'画像データとアノテーションデータの数が一致していません\nimg_id:{diff}')
+    
+    def load_json(self, *json_paths):
+        self.imgs, self.ann = dict(), dict()
+        print('loading json file...')
+        for json_path in json_paths:
+            with open(json_path, mode='r') as j:
+                info = json.load(j)
+
+            info_img_id = list(info['images'])
+            img_id = list(self.imgs)
+            inter = set(info_img_id) & set(img_id)
+            if inter is None:
+                self.imgs.update(info['images'])
+                self.anns.update(info['annotations'])
+            else:
+                raise IndexError(f'img_idが重複しています\nimg_id:{inter}')
+            
+        print('Done')
+
+    def create_json(self, json_path):
+        info = {'images': self.imgs, 'annotations': self.anns}
+        with open(json_path, mode='w') as f:
+            json.dump(info, f, indent=1, sort_keys=True)
+
+    def get_imgid(self):
+        return list(self.imgs)
+    
+    def get_impath(self, img_id):
+        return self.imgs[img_id]['path']
+    
+    def load_img(self, img_id):
+        img_path = self.get_impath(img_id)
+        img = cv2.imread(img_path)
+
+        return img
+
+    def load_anns(self, img_id):
+        anns = self.anns[img_id]
+
+        return anns
 
     def save(self, img_id, output, draw_bbox=False):
         image_path = os.path.join(output, 'images')
@@ -108,23 +148,6 @@ class Yolo:
         cv2.waitKey(0)
         cv2.destroyWindow(img_id)
 
-    def get_imgid(self):
-        return list(self.imgs)
-    
-    def get_impath(self, img_id):
-        return self.imgs[img_id]['path']
-    
-    def load_img(self, img_id):
-        img_path = self.get_impath(img_id)
-        img = cv2.imread(img_path)
-
-        return img
-
-    def load_anns(self, img_id):
-        anns = self.anns[img_id]
-
-        return anns
-
     def trans_img(self, img_id, trans, height=None, width=None):
         img = self.load_img(img_id)
         if height is None:
@@ -154,8 +177,3 @@ class Yolo:
             transed_anns.append(transed_bbox)
 
         return transed_anns
-    
-    def create_json(self, json_path):
-        with open(json_path) as f:
-            json.dump(self.imgs, f, indent=1, sort_keys=True)
-            json.dump(self.anns, f, indent=1, sort_keys=True)

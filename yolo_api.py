@@ -77,7 +77,7 @@ class Yolo:
     def create_json(self, json_path):
         info = {'images': self.imgs, 'annotations': self.anns}
         with open(json_path, mode='w') as f:
-            json.dump(info, f, indent=1, sort_keys=True)
+            json.dump(info, f, indent=1)
 
     def get_imgid(self):
         return list(self.imgs)

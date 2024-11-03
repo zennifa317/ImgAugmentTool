@@ -8,10 +8,11 @@ def maxmin_corner(corner):
 
 def xywh2xyX4(bbox):
     x,y,w,h = bbox
-    top_left = (x - w, y - h)
-    top_right = (x + w, y - h)
-    bottom_right = (x + w, y + h)
-    bottom_left = (x - w, y + h)
+
+    top_left = (x - w//2, y - h//2)
+    top_right = (x + w//2, y - h//2)
+    bottom_right = (x + w//2, y + h//2)
+    bottom_left = (x - w//2, y + h//2)
     
     return top_left, top_right, bottom_right, bottom_left
 
@@ -25,13 +26,13 @@ def xyX42xywh(corner):
 
     return x, y, w, h
 
-def adjust_corner(corner):
+def adjust_corner(corner, width, height):
     x_max, y_max, x_min, y_min = maxmin_corner(corner)
 
-    x_max = 1 if x_max > 1 else 0 if x_max < 0 else x_max
-    y_max = 1 if y_max > 1 else 0 if y_max < 0 else y_max
-    x_min = 1 if x_min > 1 else 0 if x_min < 0 else x_min
-    y_min = 1 if y_min > 1 else 0 if y_min < 0 else y_min
+    x_max = width if x_max > width else 0 if x_max < 0 else x_max
+    y_max = height if y_max > height else 0 if y_max < 0 else y_max
+    x_min = width if x_min > width else 0 if x_min < 0 else x_min
+    y_min = height if y_min > height else 0 if y_min < 0 else y_min
 
     top_left = (x_min, y_min)
     top_right = (x_max, y_min)
@@ -39,3 +40,17 @@ def adjust_corner(corner):
     bottom_left = (x_min, y_max)
 
     return top_left, top_right, bottom_right, bottom_left
+
+def denormalize(xywh, width, height):
+    de_xywh = []
+    for coor, scale in zip(xywh, (width, height, width, height)):
+        de_xywh.append(round(coor * scale))
+    
+    return de_xywh
+
+def normalize(xywh, width, height):
+    nor_xywh = []
+    for coor, scale in zip(xywh, (width, height, width, height)):
+        nor_xywh.append(round(coor / scale, 6))
+    
+    return nor_xywh

@@ -5,7 +5,7 @@ import os
 import cv2
 import numpy as np
 
-from general import xywh2xyX4, adjust_corner, xyX42xywh
+from general import xywh2xyX4, adjust_corner, xyX42xywh, denormalize, normalize
 
 class Yolo:
     def load_imgs_annos(self, images_file=None, annotations_file=None):
@@ -36,16 +36,23 @@ class Yolo:
                 img_id = os.path.splitext(os.path.basename(ann_path))[0]
                 with open(ann_path, 'r') as f:
                     ann = f.readlines()
-                for info in ann:
+                if ann != []:
+                    for info in ann:
+                        ann_info = {}
+
+                        cat_id, bbox = info.split(' ', 1)
+                        cat_id = int(cat_id)
+                        bbox = bbox.split(' ')
+                        bbox = list(map(float, bbox))
+
+                        ann_info['cat_id'] = cat_id
+                        ann_info['bbox'] = bbox
+
+                        anns[img_id].append(ann_info)
+                else:
                     ann_info = {}
-
-                    cat_id, bbox = info.split(' ', 1)
-                    cat_id = int(cat_id)
-                    bbox = bbox.split(' ')
-                    bbox = list(map(float, bbox))
-
-                    ann_info['cat_id'] = cat_id
-                    ann_info['bbox'] = bbox
+                    ann_info['cat_id'] = []
+                    ann_info['bbox'] = []
 
                     anns[img_id].append(ann_info)
             
@@ -53,11 +60,11 @@ class Yolo:
             print('Done')
 
         diff = set(imgs) ^ set(anns)
-        if diff is not None:
+        if diff != set():
             raise IndexError(f'画像データとアノテーションデータの数が一致していません\nimg_id:{diff}')
     
     def load_json(self, *json_paths):
-        self.imgs, self.ann = dict(), dict()
+        self.imgs, self.anns = dict(), dict()
         print('loading json file...')
         for json_path in json_paths:
             with open(json_path, mode='r') as j:
@@ -66,7 +73,7 @@ class Yolo:
             info_img_id = list(info['images'])
             img_id = list(self.imgs)
             inter = set(info_img_id) & set(img_id)
-            if inter is None:
+            if inter == set():
                 self.imgs.update(info['images'])
                 self.anns.update(info['annotations'])
             else:
@@ -84,6 +91,11 @@ class Yolo:
     
     def get_impath(self, img_id):
         return self.imgs[img_id]['path']
+    
+    def get_shape(self, img_id):
+        width = self.imgs[img_id]['width']
+        height = self.imgs[img_id]['height']
+        return width, height
     
     def load_img(self, img_id):
         img_path = self.get_impath(img_id)
@@ -124,11 +136,11 @@ class Yolo:
         anns_info = self.anns[img_id]
         anns = []
         for ann_info in anns_info:
-            ann = ann_info['cat_id'] + ' ' + ann_info['bbox']
+            bbox = ' '.join(map(str, ann_info['bbox']))
+            ann = str(ann_info['cat_id']) + ' ' +bbox
             anns.append(ann)
-        print(anns)
         with open(os.path.join(label_path, img_id+'.txt'), mode='w') as f:
-            f.write(''.join(anns))
+            f.write('\n'.join(anns))
     
     def show(self, img_id, draw_bbox=False):
         img_info = self.imgs[img_id]
@@ -139,9 +151,7 @@ class Yolo:
             width = img_info['width']
             height = img_info['height']
             for ann in self.anns[img_id]:
-                de_ann = []
-                for point, scale in zip(ann['bbox'], (width, height, width, height)):
-                    de_ann.append(round(point * scale))
+                de_ann = denormalize(ann['bbox'], width, height)
                 corner = xywh2xyX4(de_ann)
                 cv2.rectangle(img, corner[0], corner[2], (255, 0, 0))
 
@@ -155,7 +165,7 @@ class Yolo:
             height = self.imgs[img_id]['height']
         if  width is None:
             width =self.imgs[img_id]['width']
-        transed_img =cv2.wrapAffine(img, trans, (width, height))
+        transed_img =cv2.warpAffine(img, trans, (width, height))
 
         return transed_img
 
@@ -163,18 +173,32 @@ class Yolo:
         anns = self.load_anns(img_id)
         transed_anns = []
         np_trans = np.array(trans)
+        width =self.imgs[img_id]['width']
+        height = self.imgs[img_id]['height']
+
         for ann in anns:
             bbox = ann['bbox']
-            corner = xywh2xyX4(bbox)
+            cat_id = ann['cat_id']
+            transed_ann = {}
+            de_bbox = denormalize(bbox, width, height)
+            corner = xywh2xyX4(de_bbox)
 
             np_corner = np.array(corner)
-            np_corner = np.append(np_corner, np.ones(4, 1), axis=1)
+            np_corner = np.append(np_corner, np.ones((4, 1)), axis=1)
             np_transed_corner = np.dot(np_trans, np_corner.T)
-            np_transed_corner = np.delete(np_transed_corner, 2, axis=0)
             transed_corner = np_transed_corner.T.tolist()
 
-            adj_corner = adjust_corner(transed_corner)
+            adj_corner = adjust_corner(transed_corner, width, height)
             transed_bbox = xyX42xywh(adj_corner)
-            transed_anns.append(transed_bbox)
+            nor_bbox = normalize(transed_bbox, width, height)
+            transed_ann['cat_id'] = cat_id
+            transed_ann['bbox'] = nor_bbox
+            transed_anns.append(transed_ann)
 
         return transed_anns
+    
+    def resize(self, img_id, size, fx=0, fy=0, interpolation=cv2.INTER_LINEAR):
+        img = self.load_img(img_id)
+        resize_img = cv2.resize(img, size, fx, fy, interpolation)
+
+        return resize_img
